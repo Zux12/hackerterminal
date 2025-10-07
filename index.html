@@ -3,169 +3,70 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Terminal Matrix — Hacking Simulation</title>
+<title>Decoding — Target: BitCoin</title>
 <style>
   :root{
     --bg:#070809;
     --panel:#0b0c0d;
-    --glass: rgba(255,255,255,0.02);
-    --accent: #2aff9b;
-    --muted: #8b8f95;
-    --glass-2: rgba(255,255,255,0.03);
-    --header-height: 34px;
-    --gutter: 10px;
+    --accent:#2aff9b;
+    --muted:#8b8f95;
+    --header-height:34px;
+    --gutter:10px;
   }
   html,body{height:100%;margin:0;background:linear-gradient(180deg,#020204 0%, #0a0b0c 100%);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;color:var(--accent);-webkit-font-smoothing:antialiased}
-  .app{
-    box-sizing:border-box;
-    padding:12px;
-    height:100%;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  }
+  .app{box-sizing:border-box;padding:12px;height:100%;display:flex;flex-direction:column;gap:12px}
 
-  /* Top controls */
-  .toolbar{
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
-  .brand{
-    font-weight:700;color:#bfffdc;font-size:14px;
-  }
-  .control{
-    margin-left:auto;
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
-  .btn{
-    background:var(--glass);
-    border:1px solid rgba(255,255,255,0.03);
-    padding:6px 10px;
-    border-radius:6px;
-    color:var(--accent);
-    cursor:pointer;
-    font-size:13px;
-    user-select:none;
-  }
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .brand{font-weight:700;color:#bfffdc;font-size:14px}
+  .control{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;color:var(--accent);cursor:pointer;font-size:13px}
   .btn:active{transform:translateY(1px)}
-  .smallInput{
-    background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:6px;color:var(--accent);width:70px
-  }
+  .smallInput{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:6px;color:var(--accent);width:70px}
+  label.switch{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:13px;user-select:none}
+  .switch input{transform:scale(1.1)}
 
-  /* grid of terminals */
-  .grid{
-    display:grid;
-    gap:var(--gutter);
-    flex:1;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    align-content:start;
-  }
+  .grid{display:grid;gap:var(--gutter);flex:1;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-content:start}
 
-  .terminal{
-    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:8px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-    min-height:180px;
-    border:1px solid rgba(255,255,255,0.03);
-    position:relative;
-  }
-
-  .term-header{
-    height:var(--header-height);
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:0 10px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
-    border-bottom:1px solid rgba(255,255,255,0.02);
-    color:var(--muted);
-    font-size:13px;
-  }
-
+  .terminal{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);overflow:hidden;display:flex;flex-direction:column;min-height:180px;border:1px solid rgba(255,255,255,0.04);position:relative}
+  .term-header{height:var(--header-height);display:flex;align-items:center;gap:8px;padding:0 10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.05);color:var(--muted);font-size:13px}
   .dots{display:flex;gap:6px;align-items:center}
-  .dot{width:11px;height:11px;border-radius:50%;background:#ff5f56;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.2)}
+  .dot{width:11px;height:11px;border-radius:50%;background:#ff5f56;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.25)}
   .dot.yellow{background:#ffbd2e}
   .dot.green{background:#27c93f}
+  .term-title{margin-left:8px;font-weight:600;color:#d6ffe8;font-size:13px}
 
-  .term-title{margin-left:8px; font-weight:600; color:#d6ffe8; font-size:13px}
-
-  .term-body{
-    padding:10px;
-    overflow:auto;
-    flex:1;
-    min-height:0; /* allow flex overflow */
-    background:
-      linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));
-    font-size:13px;
-    line-height:1.4;
-  }
-
+  .term-body{padding:10px;overflow:auto;flex:1;min-height:0;font-size:13px;line-height:1.4}
   .line{white-space:pre;display:block}
   .muted{color:rgba(180,200,190,0.32)}
   .kw{color:#9bdfff}
   .str{color:#ffd28a}
   .num{color:#ff9ccd}
   .comment{color:#5a6b66}
-
-  .cursor{
-    display:inline-block;
-    width:8px;
-    height:14px;
-    background:var(--accent);
-    margin-left:4px;
-    vertical-align:middle;
-    animation:blink 1s steps(1) infinite;
-  }
+  .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);margin-left:4px;vertical-align:middle;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
 
-  .term-footer{
-    padding:6px 10px;
-    border-top:1px solid rgba(255,255,255,0.02);
-    display:flex;
-    gap:8px;
-    align-items:center;
-    font-size:12px;
-    color:var(--muted);
-    background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
-  }
-  .term-footer .mini-btn{
-    background:transparent;border:1px solid rgba(255,255,255,0.03);padding:4px 6px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px
-  }
-
-  /* hide */
+  .term-footer{padding:6px 10px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+  .term-footer .mini-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:4px 6px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px}
   .hidden{display:none}
 
-  /* responsive tweaks */
-  @media (max-width:600px){
-    .term-header .term-title{display:none}
-    .term-footer{font-size:11px}
-  }
-
-  /* pretty scroll */
   .term-body::-webkit-scrollbar{width:8px}
-  .term-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.03);border-radius:8px}
+  .term-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:8px}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="toolbar">
-    <div class="brand">Terminal Matrix — simulation</div>
-
-    <div style="margin-left:12px;color:var(--muted);font-size:13px">Pretend-hack vibes • multiple terminals auto-typing</div>
+    <div class="brand">Decoding — Target: BitCoin</div>
+    <div style="margin-left:12px;color:var(--muted);font-size:13px">Auto-decode - Progress: Visible.</div>
 
     <div class="control">
       <label style="color:var(--muted);font-size:13px">Terminals</label>
-      <input id="termCount" class="smallInput" type="number" value="4" min="1" max="12" title="How many terminal windows" />
+      <input id="termCount" class="smallInput" type="number" value="4" min="1" max="12" />
       <button class="btn" id="applyCount">Apply</button>
       <button class="btn" id="pauseAll">Pause All</button>
       <button class="btn" id="resumeAll">Resume All</button>
       <button class="btn" id="randomize">Randomize</button>
+      <label class="switch"><input id="autoFollow" type="checkbox" checked /> Stay in view</label>
     </div>
   </div>
 
@@ -199,8 +100,6 @@ const SAMPLE_SNIPPETS = [
   'Parsing log: failed={NUM}, ok={NUM}, ignored={NUM}',
   'payload.size={NUM} bytes -> chunked into {NUM} blocks'
 ];
-
-const COLORS = ['kw','str','num','comment'];
 
 function rnd(min=0,max=1000){ return Math.floor(Math.random()*(max-min+1))+min }
 function hex(len=4){ let s=''; for(let i=0;i<len;i++) s += Math.floor(Math.random()*16).toString(16); return s }
@@ -269,9 +168,8 @@ class Terminal {
   }
 
   start(){
-    this.loop = setInterval(()=> {
+    this.loop = setInterval(()=>{
       if(this.paused || !this.visible) return;
-      // occasionally produce a burst of short lines
       const burst = Math.random() < 0.12;
       if(burst){
         const n = rnd(2,6);
@@ -284,7 +182,6 @@ class Terminal {
 
   pushRandomLine(delay=0){
     const snippet = fillPlaceholders(SAMPLE_SNIPPETS[rnd(0,SAMPLE_SNIPPETS.length-1)]);
-    // sometimes insert a comment or timestamp
     const prefix = (Math.random()<0.25) ? `[${timestr()}] ` : '';
     setTimeout(()=> this.typeLine(prefix + snippet), delay);
   }
@@ -292,145 +189,118 @@ class Terminal {
   typeLine(text){
     const lineEl = document.createElement('div');
     lineEl.className = 'line';
-    // build pseudo syntax: split words and wrap some spans
+
+    // syntax tinting
     const parts = text.split(/(\s+)/);
     parts.forEach(token=>{
-      if(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(token)){
-        const span = document.createElement('span'); span.className='num'; span.textContent = token; lineEl.appendChild(span); return;
-      }
-      if(token.startsWith('[') && token.endsWith(']') || token.includes('time') || token.includes('TRACE')){
-        const span = document.createElement('span'); span.className='comment'; span.textContent = token; lineEl.appendChild(span); return;
-      }
-      if(token.includes('"') || token.includes("'") || token.includes('payload')){
-        const span = document.createElement('span'); span.className='str'; span.textContent = token; lineEl.appendChild(span); return;
-      }
-      if(token.includes('sudo')||token.includes('git')||token.includes('python')||token.includes('ssh')||token.includes('rm')||token.includes('alloc')||token.includes('watchdog')){
-        const span = document.createElement('span'); span.className='kw'; span.textContent = token; lineEl.appendChild(span); return;
-      }
-      // default
-      const span = document.createElement('span'); span.textContent = token; lineEl.appendChild(span);
+      const span = document.createElement('span');
+      if(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(token)) span.className='num';
+      else if((token.startsWith('[')&&token.endsWith(']'))||token.includes('TRACE')||token.includes('time')) span.className='comment';
+      else if(token.includes('"')||token.includes("'")||token.includes('payload')) span.className='str';
+      else if(/^(sudo|git|python|ssh|rm|alloc|watchdog)/.test(token)) span.className='kw';
+      span.textContent = token;
+      lineEl.appendChild(span);
     });
 
-    // append a cursor and animate typing effect by progressively revealing characters
     const cursor = document.createElement('span'); cursor.className='cursor';
     lineEl.appendChild(cursor);
     this.body.appendChild(lineEl);
 
-    // reveal characters progressively by toggling opacity on child nodes
-    const children = Array.from(lineEl.childNodes).filter(n => n !== cursor);
-    // flatten text content per child for gradual reveal
-    let charQueue = [];
+    // progressive typing
+    const children = Array.from(lineEl.childNodes).filter(n=> n!==cursor);
+    let queue = [];
     children.forEach(node=>{
       const txt = node.textContent;
-      node.textContent = ''; // we will add
-      for(let ch of txt) charQueue.push({node, ch});
+      node.textContent = '';
+      for(const ch of txt) queue.push({node,ch});
     });
 
-    let idx = 0;
-    const tick = ()=>{
-      if(this.paused || !this.visible){
-        setTimeout(tick, 120);
-        return;
-      }
-      if(idx < charQueue.length){
-        const item = charQueue[idx++];
-        item.node.textContent += item.ch;
-        // tiny chance to do color flicker by toggling class
-        if(Math.random() < 0.004){
-          item.node.classList.add('comment');
-          setTimeout(()=> item.node.classList.remove('comment'), 400);
-        }
-        this.body.scrollTop = this.body.scrollHeight;
-        setTimeout(tick, rnd(6,18));
+    let i=0;
+    const step = ()=>{
+      if(this.paused || !this.visible){ setTimeout(step,120); return; }
+      if(i<queue.length){
+        const {node,ch} = queue[i++];
+        node.textContent += ch;
+        if(Math.random()<0.004){ node.classList.add('comment'); setTimeout(()=>node.classList.remove('comment'), 400); }
+        ensureFollow(this.body);
+        setTimeout(step, rnd(6,18));
       } else {
-        // done typing, remove cursor
         cursor.remove();
-        // keep log length reasonable
-        this.trim();
+        this.trimAndCycle();
+        ensureFollow(this.body);
       }
     };
-    setTimeout(tick, rnd(6,30));
+    setTimeout(step, rnd(6,30));
   }
 
-  trim(){
+  trimAndCycle(){
+    // Keep newest chunk so it never scrolls far away
     const lines = this.body.querySelectorAll('.line');
-    if(lines.length > 300){
-      // remove oldest 100
-      for(let i=0;i<100;i++) if(lines[i]) lines[i].remove();
+    if(lines.length > 140){
+      // keep last 80 lines
+      for(let i=0;i<lines.length-80;i++) lines[i].remove();
     }
   }
 
-  pause(){
-    this.paused = true;
-    this.statusEl.textContent = 'paused';
-    this.pauseBtn.classList.add('hidden');
-    this.resumeBtn.classList.remove('hidden');
-  }
-  resume(){
-    this.paused = false;
-    this.statusEl.textContent = 'running';
-    this.pauseBtn.classList.remove('hidden');
-    this.resumeBtn.classList.add('hidden');
-  }
-  hide(){
-    this.el.classList.add('hidden');
-    this.visible = false;
-    this.statusEl.textContent = 'hidden';
-  }
-  show(){
-    this.el.classList.remove('hidden');
-    this.visible = true;
-    this.statusEl.textContent = 'running';
-  }
-  toggleVisibility(){
-    if(this.visible) this.hide(); else this.show();
-  }
-  destroy(){
-    clearInterval(this.loop);
-    this.el.remove();
-  }
+  pause(){ this.paused = true; this.statusEl.textContent='paused'; this.pauseBtn.classList.add('hidden'); this.resumeBtn.classList.remove('hidden'); }
+  resume(){ this.paused = false; this.statusEl.textContent='running'; this.pauseBtn.classList.remove('hidden'); this.resumeBtn.classList.add('hidden'); }
+  hide(){ this.el.classList.add('hidden'); this.visible=false; this.statusEl.textContent='hidden'; }
+  show(){ this.el.classList.remove('hidden'); this.visible=true; this.statusEl.textContent='running'; }
+  toggleVisibility(){ this.visible ? this.hide() : this.show(); }
+  destroy(){ clearInterval(this.loop); this.el.remove(); }
 }
 
 /* ---------- manager ---------- */
 const grid = document.getElementById('grid');
 let terminals = [];
+let followEnabled = true;
 
 function buildGrid(count){
-  // remove old
   terminals.forEach(t=> t.destroy());
   terminals = [];
   grid.innerHTML = '';
-  for(let i=1;i<=count;i++){
-    terminals.push(new Terminal(i, grid));
-  }
+  for(let i=1;i<=count;i++) terminals.push(new Terminal(i, grid));
 }
 
-// initial
 buildGrid(4);
 
-// UI hooks
+/* global controls */
 document.getElementById('applyCount').addEventListener('click', ()=>{
   const v = parseInt(document.getElementById('termCount').value) || 4;
   const clamped = Math.max(1, Math.min(12, v));
   document.getElementById('termCount').value = clamped;
   buildGrid(clamped);
 });
-
-document.getElementById('pauseAll').addEventListener('click', ()=>{
-  terminals.forEach(t=> t.pause());
-});
-document.getElementById('resumeAll').addEventListener('click', ()=>{
-  terminals.forEach(t=> t.resume());
-});
+document.getElementById('pauseAll').addEventListener('click', ()=> terminals.forEach(t=> t.pause()));
+document.getElementById('resumeAll').addEventListener('click', ()=> terminals.forEach(t=> t.resume()));
 document.getElementById('randomize').addEventListener('click', ()=>{
-  // randomize by adding some immediate bursts to each terminal
   terminals.forEach(t=>{
     const bursts = rnd(3,8);
     for(let i=0;i<bursts;i++) t.pushRandomLine(i*80);
   });
 });
+document.getElementById('autoFollow').addEventListener('change', e=>{
+  followEnabled = !!e.target.checked;
+});
 
-/* keyboard quick toggles */
+/* Always keep latest lines visible when enabled */
+function ensureFollow(scroller){
+  if(!followEnabled) return;
+  // jump to bottom smoothly without jank
+  scroller.scrollTop = scroller.scrollHeight;
+}
+
+/* Safety net: in case the browser throttles animations while idle,
+   nudge scrollers to bottom periodically so spectators always see the newest lines. */
+setInterval(()=>{
+  if(!followEnabled) return;
+  terminals.forEach(t=>{
+    if(!t.visible || t.paused) return;
+    t.body.scrollTop = t.body.scrollHeight;
+  });
+}, 800);
+
+/* keyboard shortcuts */
 window.addEventListener('keydown', (e)=>{
   if(e.key === 'p') terminals.forEach(t => t.paused ? t.resume() : t.pause());
   if(e.key === 'r') terminals.forEach(t => t.resume());
@@ -439,4 +309,3 @@ window.addEventListener('keydown', (e)=>{
 </script>
 </body>
 </html>
-
