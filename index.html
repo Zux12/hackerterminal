@@ -1,1 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Terminal Matrix — Hacking Simulation</title>
+<style>
+  :root{
+    --bg:#070809;
+    --panel:#0b0c0d;
+    --glass: rgba(255,255,255,0.02);
+    --accent: #2aff9b;
+    --muted: #8b8f95;
+    --glass-2: rgba(255,255,255,0.03);
+    --header-height: 34px;
+    --gutter: 10px;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#020204 0%, #0a0b0c 100%);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;color:var(--accent);-webkit-font-smoothing:antialiased}
+  .app{
+    box-sizing:border-box;
+    padding:12px;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  /* Top controls */
+  .toolbar{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .brand{
+    font-weight:700;color:#bfffdc;font-size:14px;
+  }
+  .control{
+    margin-left:auto;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .btn{
+    background:var(--glass);
+    border:1px solid rgba(255,255,255,0.03);
+    padding:6px 10px;
+    border-radius:6px;
+    color:var(--accent);
+    cursor:pointer;
+    font-size:13px;
+    user-select:none;
+  }
+  .btn:active{transform:translateY(1px)}
+  .smallInput{
+    background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:6px;color:var(--accent);width:70px
+  }
+
+  /* grid of terminals */
+  .grid{
+    display:grid;
+    gap:var(--gutter);
+    flex:1;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    align-content:start;
+  }
+
+  .terminal{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:180px;
+    border:1px solid rgba(255,255,255,0.03);
+    position:relative;
+  }
+
+  .term-header{
+    height:var(--header-height);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border-bottom:1px solid rgba(255,255,255,0.02);
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  .dots{display:flex;gap:6px;align-items:center}
+  .dot{width:11px;height:11px;border-radius:50%;background:#ff5f56;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.2)}
+  .dot.yellow{background:#ffbd2e}
+  .dot.green{background:#27c93f}
+
+  .term-title{margin-left:8px; font-weight:600; color:#d6ffe8; font-size:13px}
+
+  .term-body{
+    padding:10px;
+    overflow:auto;
+    flex:1;
+    min-height:0; /* allow flex overflow */
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));
+    font-size:13px;
+    line-height:1.4;
+  }
+
+  .line{white-space:pre;display:block}
+  .muted{color:rgba(180,200,190,0.32)}
+  .kw{color:#9bdfff}
+  .str{color:#ffd28a}
+  .num{color:#ff9ccd}
+  .comment{color:#5a6b66}
+
+  .cursor{
+    display:inline-block;
+    width:8px;
+    height:14px;
+    background:var(--accent);
+    margin-left:4px;
+    vertical-align:middle;
+    animation:blink 1s steps(1) infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  .term-footer{
+    padding:6px 10px;
+    border-top:1px solid rgba(255,255,255,0.02);
+    display:flex;
+    gap:8px;
+    align-items:center;
+    font-size:12px;
+    color:var(--muted);
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+  }
+  .term-footer .mini-btn{
+    background:transparent;border:1px solid rgba(255,255,255,0.03);padding:4px 6px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px
+  }
+
+  /* hide */
+  .hidden{display:none}
+
+  /* responsive tweaks */
+  @media (max-width:600px){
+    .term-header .term-title{display:none}
+    .term-footer{font-size:11px}
+  }
+
+  /* pretty scroll */
+  .term-body::-webkit-scrollbar{width:8px}
+  .term-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.03);border-radius:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <div class="brand">Terminal Matrix — simulation</div>
+
+    <div style="margin-left:12px;color:var(--muted);font-size:13px">Pretend-hack vibes • multiple terminals auto-typing</div>
+
+    <div class="control">
+      <label style="color:var(--muted);font-size:13px">Terminals</label>
+      <input id="termCount" class="smallInput" type="number" value="4" min="1" max="12" title="How many terminal windows" />
+      <button class="btn" id="applyCount">Apply</button>
+      <button class="btn" id="pauseAll">Pause All</button>
+      <button class="btn" id="resumeAll">Resume All</button>
+      <button class="btn" id="randomize">Randomize</button>
+    </div>
+  </div>
+
+  <div id="grid" class="grid" aria-live="polite"></div>
+</div>
+
+<script>
+/* ---------------------------
+   Terminal Matrix Simulation
+   --------------------------- */
+
+const SAMPLE_SNIPPETS = [
+  'sudo nmap -sS -p- 10.0.{RND}.{RND}',
+  'Connecting to backbone node: NODE-{HEX}',
+  'decrypting /etc/secure/config => ok',
+  'TRACE ROUTE: 192.168.{RND}.{RND} -> {IP}',
+  'auth: token verified (uid: {UID})',
+  'git fetch --all && git reset --hard origin/main',
+  'python3 tools/scan_ports.py --fast --threads=12',
+  '[INFO] Processed {NUM} packets in {NUM}ms',
+  'watchdog: heartbeat lost on interface eth{RND}',
+  'DB_WRITE /var/log/trace.log: "session {TIME} started"',
+  'alloc(0x{HEX}, {NUM}) = PTR_OK',
+  '>>> payload:[{HEX}{HEX}{HEX}]',
+  'ssh root@host-{RND}.{RND}.{RND}.{RND} -p {NUM}',
+  'SSL cert chain validated: issuer=GLOBAL-CA',
+  'rm -rf /tmp/cache_{UID}/* || true',
+  'while true; do echo "still running"; sleep 1; done',
+  'SERVICE: firewalled? {BOOL} - status: {STATUS}',
+  '>>> ECHO "INTRUSION DETECTED" | wall',
+  'Parsing log: failed={NUM}, ok={NUM}, ignored={NUM}',
+  'payload.size={NUM} bytes -> chunked into {NUM} blocks'
+];
+
+const COLORS = ['kw','str','num','comment'];
+
+function rnd(min=0,max=1000){ return Math.floor(Math.random()*(max-min+1))+min }
+function hex(len=4){ let s=''; for(let i=0;i<len;i++) s += Math.floor(Math.random()*16).toString(16); return s }
+function uid(){ return Math.floor(Math.random()*9000)+1000 }
+function timestr(){ const d=new Date(); return d.toLocaleTimeString() }
+
+function fillPlaceholders(s){
+  return s.replace(/\{RND\}/g,()=>rnd(1,254))
+          .replace(/\{HEX\}/g,()=>hex(4))
+          .replace(/\{UID\}/g,()=>uid())
+          .replace(/\{NUM\}/g,()=>rnd(1,9999))
+          .replace(/\{IP\}/g,()=>['10.0.0.1','172.16.8.4','203.120.45.2'][rnd(0,2)])
+          .replace(/\{BOOL\}/g,()=>Math.random()>0.5?'true':'false')
+          .replace(/\{STATUS\}/g,()=>['OK','WARN','FAIL'][rnd(0,2)])
+          .replace(/\{TIME\}/g,()=>new Date().toISOString())
+}
+
+class Terminal {
+  constructor(id, parent){
+    this.id = id;
+    this.parent = parent;
+    this.paused = false;
+    this.visible = true;
+    this.createElement();
+    this.start();
+  }
+
+  createElement(){
+    const el = document.createElement('div');
+    el.className = 'terminal';
+    el.innerHTML = `
+      <div class="term-header">
+        <div class="dots">
+          <span class="dot"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <div class="term-title">root@matrix-${this.id.toString().padStart(2,'0')} ~</div>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <button class="mini action-close" title="Close">✕</button>
+          <button class="mini action-toggle" title="Hide">—</button>
+        </div>
+      </div>
+      <div class="term-body" role="log" aria-atomic="false"></div>
+      <div class="term-footer">
+        <div class="muted">status: <span class="status">running</span></div>
+        <div style="flex:1"></div>
+        <button class="mini-btn pause">Pause</button>
+        <button class="mini-btn resume hidden">Resume</button>
+      </div>
+    `;
+    this.el = el;
+    this.body = el.querySelector('.term-body');
+    this.statusEl = el.querySelector('.status');
+    this.pauseBtn = el.querySelector('.pause');
+    this.resumeBtn = el.querySelector('.resume');
+    this.closeBtn = el.querySelector('.action-close');
+    this.toggleBtn = el.querySelector('.action-toggle');
+
+    this.pauseBtn.addEventListener('click',()=>this.pause());
+    this.resumeBtn.addEventListener('click',()=>this.resume());
+    this.closeBtn.addEventListener('click',()=> this.hide());
+    this.toggleBtn.addEventListener('click',()=> this.toggleVisibility());
+
+    this.parent.appendChild(el);
+  }
+
+  start(){
+    this.loop = setInterval(()=> {
+      if(this.paused || !this.visible) return;
+      // occasionally produce a burst of short lines
+      const burst = Math.random() < 0.12;
+      if(burst){
+        const n = rnd(2,6);
+        for(let i=0;i<n;i++) this.pushRandomLine(10 + i*200);
+      } else {
+        this.pushRandomLine();
+      }
+    }, rnd(350,900));
+  }
+
+  pushRandomLine(delay=0){
+    const snippet = fillPlaceholders(SAMPLE_SNIPPETS[rnd(0,SAMPLE_SNIPPETS.length-1)]);
+    // sometimes insert a comment or timestamp
+    const prefix = (Math.random()<0.25) ? `[${timestr()}] ` : '';
+    setTimeout(()=> this.typeLine(prefix + snippet), delay);
+  }
+
+  typeLine(text){
+    const lineEl = document.createElement('div');
+    lineEl.className = 'line';
+    // build pseudo syntax: split words and wrap some spans
+    const parts = text.split(/(\s+)/);
+    parts.forEach(token=>{
+      if(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(token)){
+        const span = document.createElement('span'); span.className='num'; span.textContent = token; lineEl.appendChild(span); return;
+      }
+      if(token.startsWith('[') && token.endsWith(']') || token.includes('time') || token.includes('TRACE')){
+        const span = document.createElement('span'); span.className='comment'; span.textContent = token; lineEl.appendChild(span); return;
+      }
+      if(token.includes('"') || token.includes("'") || token.includes('payload')){
+        const span = document.createElement('span'); span.className='str'; span.textContent = token; lineEl.appendChild(span); return;
+      }
+      if(token.includes('sudo')||token.includes('git')||token.includes('python')||token.includes('ssh')||token.includes('rm')||token.includes('alloc')||token.includes('watchdog')){
+        const span = document.createElement('span'); span.className='kw'; span.textContent = token; lineEl.appendChild(span); return;
+      }
+      // default
+      const span = document.createElement('span'); span.textContent = token; lineEl.appendChild(span);
+    });
+
+    // append a cursor and animate typing effect by progressively revealing characters
+    const cursor = document.createElement('span'); cursor.className='cursor';
+    lineEl.appendChild(cursor);
+    this.body.appendChild(lineEl);
+
+    // reveal characters progressively by toggling opacity on child nodes
+    const children = Array.from(lineEl.childNodes).filter(n => n !== cursor);
+    // flatten text content per child for gradual reveal
+    let charQueue = [];
+    children.forEach(node=>{
+      const txt = node.textContent;
+      node.textContent = ''; // we will add
+      for(let ch of txt) charQueue.push({node, ch});
+    });
+
+    let idx = 0;
+    const tick = ()=>{
+      if(this.paused || !this.visible){
+        setTimeout(tick, 120);
+        return;
+      }
+      if(idx < charQueue.length){
+        const item = charQueue[idx++];
+        item.node.textContent += item.ch;
+        // tiny chance to do color flicker by toggling class
+        if(Math.random() < 0.004){
+          item.node.classList.add('comment');
+          setTimeout(()=> item.node.classList.remove('comment'), 400);
+        }
+        this.body.scrollTop = this.body.scrollHeight;
+        setTimeout(tick, rnd(6,18));
+      } else {
+        // done typing, remove cursor
+        cursor.remove();
+        // keep log length reasonable
+        this.trim();
+      }
+    };
+    setTimeout(tick, rnd(6,30));
+  }
+
+  trim(){
+    const lines = this.body.querySelectorAll('.line');
+    if(lines.length > 300){
+      // remove oldest 100
+      for(let i=0;i<100;i++) if(lines[i]) lines[i].remove();
+    }
+  }
+
+  pause(){
+    this.paused = true;
+    this.statusEl.textContent = 'paused';
+    this.pauseBtn.classList.add('hidden');
+    this.resumeBtn.classList.remove('hidden');
+  }
+  resume(){
+    this.paused = false;
+    this.statusEl.textContent = 'running';
+    this.pauseBtn.classList.remove('hidden');
+    this.resumeBtn.classList.add('hidden');
+  }
+  hide(){
+    this.el.classList.add('hidden');
+    this.visible = false;
+    this.statusEl.textContent = 'hidden';
+  }
+  show(){
+    this.el.classList.remove('hidden');
+    this.visible = true;
+    this.statusEl.textContent = 'running';
+  }
+  toggleVisibility(){
+    if(this.visible) this.hide(); else this.show();
+  }
+  destroy(){
+    clearInterval(this.loop);
+    this.el.remove();
+  }
+}
+
+/* ---------- manager ---------- */
+const grid = document.getElementById('grid');
+let terminals = [];
+
+function buildGrid(count){
+  // remove old
+  terminals.forEach(t=> t.destroy());
+  terminals = [];
+  grid.innerHTML = '';
+  for(let i=1;i<=count;i++){
+    terminals.push(new Terminal(i, grid));
+  }
+}
+
+// initial
+buildGrid(4);
+
+// UI hooks
+document.getElementById('applyCount').addEventListener('click', ()=>{
+  const v = parseInt(document.getElementById('termCount').value) || 4;
+  const clamped = Math.max(1, Math.min(12, v));
+  document.getElementById('termCount').value = clamped;
+  buildGrid(clamped);
+});
+
+document.getElementById('pauseAll').addEventListener('click', ()=>{
+  terminals.forEach(t=> t.pause());
+});
+document.getElementById('resumeAll').addEventListener('click', ()=>{
+  terminals.forEach(t=> t.resume());
+});
+document.getElementById('randomize').addEventListener('click', ()=>{
+  // randomize by adding some immediate bursts to each terminal
+  terminals.forEach(t=>{
+    const bursts = rnd(3,8);
+    for(let i=0;i<bursts;i++) t.pushRandomLine(i*80);
+  });
+});
+
+/* keyboard quick toggles */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'p') terminals.forEach(t => t.paused ? t.resume() : t.pause());
+  if(e.key === 'r') terminals.forEach(t => t.resume());
+  if(e.key === 'b') document.getElementById('randomize').click();
+});
+</script>
+</body>
+</html>
 
