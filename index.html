@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Decoding — Target: BitCoin</title>
+<title>Decoding — Target: Bitcoin</title>
 <style>
   :root{
     --bg:#070809;
-    --panel:#0b0c0d;
     --accent:#2aff9b;
     --muted:#8b8f95;
     --header-height:34px;
@@ -22,12 +21,11 @@
   .btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;color:var(--accent);cursor:pointer;font-size:13px}
   .btn:active{transform:translateY(1px)}
   .smallInput{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:6px;color:var(--accent);width:70px}
-  label.switch{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:13px;user-select:none}
-  .switch input{transform:scale(1.1)}
+  .hint{color:var(--muted);font-size:13px}
 
   .grid{display:grid;gap:var(--gutter);flex:1;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-content:start}
 
-  .terminal{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);overflow:hidden;display:flex;flex-direction:column;min-height:180px;border:1px solid rgba(255,255,255,0.04);position:relative}
+  .terminal{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);overflow:hidden;display:flex;flex-direction:column;min-height:180px;border:1px solid rgba(255,255,255,0.04)}
   .term-header{height:var(--header-height);display:flex;align-items:center;gap:8px;padding:0 10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.05);color:var(--muted);font-size:13px}
   .dots{display:flex;gap:6px;align-items:center}
   .dot{width:11px;height:11px;border-radius:50%;background:#ff5f56;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.25)}
@@ -35,7 +33,8 @@
   .dot.green{background:#27c93f}
   .term-title{margin-left:8px;font-weight:600;color:#d6ffe8;font-size:13px}
 
-  .term-body{padding:10px;overflow:auto;flex:1;min-height:0;font-size:13px;line-height:1.4}
+  /* No scrollbars; we will trim to fit */
+  .term-body{padding:10px;overflow:hidden;flex:1;min-height:0;font-size:13px;line-height:1.4}
   .line{white-space:pre;display:block}
   .muted{color:rgba(180,200,190,0.32)}
   .kw{color:#9bdfff}
@@ -48,25 +47,20 @@
   .term-footer{padding:6px 10px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
   .term-footer .mini-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:4px 6px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px}
   .hidden{display:none}
-
-  .term-body::-webkit-scrollbar{width:8px}
-  .term-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:8px}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="toolbar">
-    <div class="brand">Decoding — Target: BitCoin</div>
-    <div style="margin-left:12px;color:var(--muted);font-size:13px">Auto-decode - Progress: Visible.</div>
-
+    <div class="brand">Auto Decode — Progressive Mode</div>
+    <div class="hint">Undetected - Passive.</div>
     <div class="control">
-      <label style="color:var(--muted);font-size:13px">Terminals</label>
+      <label class="hint">Terminals</label>
       <input id="termCount" class="smallInput" type="number" value="4" min="1" max="12" />
       <button class="btn" id="applyCount">Apply</button>
       <button class="btn" id="pauseAll">Pause All</button>
       <button class="btn" id="resumeAll">Resume All</button>
       <button class="btn" id="randomize">Randomize</button>
-      <label class="switch"><input id="autoFollow" type="checkbox" checked /> Stay in view</label>
     </div>
   </div>
 
@@ -74,10 +68,6 @@
 </div>
 
 <script>
-/* ---------------------------
-   Terminal Matrix Simulation
-   --------------------------- */
-
 const SAMPLE_SNIPPETS = [
   'sudo nmap -sS -p- 10.0.{RND}.{RND}',
   'Connecting to backbone node: NODE-{HEX}',
@@ -206,7 +196,7 @@ class Terminal {
     lineEl.appendChild(cursor);
     this.body.appendChild(lineEl);
 
-    // progressive typing
+    // progressive typing with fit checks
     const children = Array.from(lineEl.childNodes).filter(n=> n!==cursor);
     let queue = [];
     children.forEach(node=>{
@@ -222,23 +212,28 @@ class Terminal {
         const {node,ch} = queue[i++];
         node.textContent += ch;
         if(Math.random()<0.004){ node.classList.add('comment'); setTimeout(()=>node.classList.remove('comment'), 400); }
-        ensureFollow(this.body);
+        this.ensureFit();     // <-- trim during typing if needed
         setTimeout(step, rnd(6,18));
       } else {
         cursor.remove();
-        this.trimAndCycle();
-        ensureFollow(this.body);
+        this.ensureFit(true); // final trim after line completes
       }
     };
     setTimeout(step, rnd(6,30));
   }
 
-  trimAndCycle(){
-    // Keep newest chunk so it never scrolls far away
-    const lines = this.body.querySelectorAll('.line');
-    if(lines.length > 140){
-      // keep last 80 lines
-      for(let i=0;i<lines.length-80;i++) lines[i].remove();
+  /* Trim from the top until the content fits the visible area (no scrollbar). */
+  ensureFit(final=false){
+    // small buffer so we don't thrash
+    const BUFFER_PX = final ? 4 : 12;
+    const body = this.body;
+    // While overflowing, remove the oldest line(s)
+    let guard = 0; // safety to avoid infinite loops in weird layouts
+    while (body.scrollHeight - body.clientHeight > BUFFER_PX && guard < 500){
+      const first = body.querySelector('.line');
+      if(!first) break;
+      first.remove();
+      guard++;
     }
   }
 
@@ -253,7 +248,6 @@ class Terminal {
 /* ---------- manager ---------- */
 const grid = document.getElementById('grid');
 let terminals = [];
-let followEnabled = true;
 
 function buildGrid(count){
   terminals.forEach(t=> t.destroy());
@@ -279,32 +273,10 @@ document.getElementById('randomize').addEventListener('click', ()=>{
     for(let i=0;i<bursts;i++) t.pushRandomLine(i*80);
   });
 });
-document.getElementById('autoFollow').addEventListener('change', e=>{
-  followEnabled = !!e.target.checked;
-});
 
-/* Always keep latest lines visible when enabled */
-function ensureFollow(scroller){
-  if(!followEnabled) return;
-  // jump to bottom smoothly without jank
-  scroller.scrollTop = scroller.scrollHeight;
-}
-
-/* Safety net: in case the browser throttles animations while idle,
-   nudge scrollers to bottom periodically so spectators always see the newest lines. */
-setInterval(()=>{
-  if(!followEnabled) return;
-  terminals.forEach(t=>{
-    if(!t.visible || t.paused) return;
-    t.body.scrollTop = t.body.scrollHeight;
-  });
-}, 800);
-
-/* keyboard shortcuts */
-window.addEventListener('keydown', (e)=>{
-  if(e.key === 'p') terminals.forEach(t => t.paused ? t.resume() : t.pause());
-  if(e.key === 'r') terminals.forEach(t => t.resume());
-  if(e.key === 'b') document.getElementById('randomize').click();
+/* Re-fit on resize/orientation changes so nothing ever overflows */
+window.addEventListener('resize', ()=>{
+  terminals.forEach(t=> t.ensureFit(true));
 });
 </script>
 </body>
