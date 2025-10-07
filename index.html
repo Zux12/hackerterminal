@@ -3,281 +3,305 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Decoding — Target: Bitcoin</title>
+<title>Decode — Target: Bitcoin</title>
 <style>
   :root{
-    --bg:#070809;
+    --bg:#050607;
     --accent:#2aff9b;
     --muted:#8b8f95;
-    --header-height:34px;
     --gutter:10px;
+    --min-tile-w: 340px; /* min terminal width before we add a new row */
+    --toolbar-h: 46px;
   }
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#020204 0%, #0a0b0c 100%);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;color:var(--accent);-webkit-font-smoothing:antialiased}
-  .app{box-sizing:border-box;padding:12px;height:100%;display:flex;flex-direction:column;gap:12px}
-
-  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .brand{font-weight:700;color:#bfffdc;font-size:14px}
+  html,body{height:100%;margin:0;background:#0a0c0e;color:var(--accent);font-family:ui-monospace,Menlo,Monaco,Consolas,monospace;overflow:hidden}
+  .app{height:100vh;display:flex;flex-direction:column}
+  .toolbar{height:var(--toolbar-h);display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05)}
+  .brand{font-weight:700;color:#bfffdc}
   .control{margin-left:auto;display:flex;gap:8px;align-items:center}
-  .btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;color:var(--accent);cursor:pointer;font-size:13px}
-  .btn:active{transform:translateY(1px)}
-  .smallInput{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:6px;color:var(--accent);width:70px}
-  .hint{color:var(--muted);font-size:13px}
-
-  .grid{display:grid;gap:var(--gutter);flex:1;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-content:start}
-
-  .terminal{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);overflow:hidden;display:flex;flex-direction:column;min-height:180px;border:1px solid rgba(255,255,255,0.04)}
-  .term-header{height:var(--header-height);display:flex;align-items:center;gap:8px;padding:0 10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.05);color:var(--muted);font-size:13px}
-  .dots{display:flex;gap:6px;align-items:center}
-  .dot{width:11px;height:11px;border-radius:50%;background:#ff5f56;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.25)}
-  .dot.yellow{background:#ffbd2e}
-  .dot.green{background:#27c93f}
-  .term-title{margin-left:8px;font-weight:600;color:#d6ffe8;font-size:13px}
-
-  /* No scrollbars; we will trim to fit */
-  .term-body{padding:10px;overflow:hidden;flex:1;min-height:0;font-size:13px;line-height:1.4}
-  .line{white-space:pre;display:block}
-  .muted{color:rgba(180,200,190,0.32)}
-  .kw{color:#9bdfff}
-  .str{color:#ffd28a}
-  .num{color:#ff9ccd}
-  .comment{color:#5a6b66}
-  .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);margin-left:4px;vertical-align:middle;animation:blink 1s steps(1) infinite}
-  @keyframes blink{50%{opacity:0}}
-
-  .term-footer{padding:6px 10px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
-  .term-footer .mini-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:4px 6px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px}
-  .hidden{display:none}
+  .btn,.num{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--accent);border-radius:8px;padding:6px 10px;font-size:13px}
+  .btn{cursor:pointer}
+  .num{width:72px;background:transparent}
+  .grid{flex:1;display:grid;gap:var(--gutter);padding:12px;box-sizing:border-box;overflow:hidden}
+  .tile{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.06);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}
+  .title{position:absolute;left:8px;top:6px;font-size:12px;color:var(--muted);z-index:2}
+  canvas{position:absolute;inset:0;display:block}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="toolbar">
-    <div class="brand">Auto Decode — Progressive Mode</div>
-    <div class="hint">Undetected - Passive.</div>
+    <div class="brand">Auto Decoding - Progressive</div>
+    <div style="color:var(--muted);font-size:13px">Brute-Force Mode</div>
     <div class="control">
-      <label class="hint">Terminals</label>
-      <input id="termCount" class="smallInput" type="number" value="4" min="1" max="12" />
-      <button class="btn" id="applyCount">Apply</button>
-      <button class="btn" id="pauseAll">Pause All</button>
-      <button class="btn" id="resumeAll">Resume All</button>
-      <button class="btn" id="randomize">Randomize</button>
+      <label style="color:var(--muted);font-size:13px">Terminals</label>
+      <input id="termCount" class="num" type="number" min="1" max="16" value="6" />
+      <button class="btn" id="apply">Apply</button>
+      <button class="btn" id="pauseAll">Pause</button>
+      <button class="btn" id="resumeAll">Resume</button>
+      <button class="btn" id="randomize">Burst</button>
     </div>
   </div>
 
-  <div id="grid" class="grid" aria-live="polite"></div>
+  <div id="grid" class="grid"></div>
 </div>
 
 <script>
-const SAMPLE_SNIPPETS = [
-  'sudo nmap -sS -p- 10.0.{RND}.{RND}',
-  'Connecting to backbone node: NODE-{HEX}',
-  'decrypting /etc/secure/config => ok',
-  'TRACE ROUTE: 192.168.{RND}.{RND} -> {IP}',
-  'auth: token verified (uid: {UID})',
-  'git fetch --all && git reset --hard origin/main',
-  'python3 tools/scan_ports.py --fast --threads=12',
-  '[INFO] Processed {NUM} packets in {NUM}ms',
-  'watchdog: heartbeat lost on interface eth{RND}',
-  'DB_WRITE /var/log/trace.log: "session {TIME} started"',
-  'alloc(0x{HEX}, {NUM}) = PTR_OK',
-  '>>> payload:[{HEX}{HEX}{HEX}]',
-  'ssh root@host-{RND}.{RND}.{RND}.{RND} -p {NUM}',
-  'SSL cert chain validated: issuer=GLOBAL-CA',
-  'rm -rf /tmp/cache_{UID}/* || true',
-  'while true; do echo "still running"; sleep 1; done',
-  'SERVICE: firewalled? {BOOL} - status: {STATUS}',
-  '>>> ECHO "INTRUSION DETECTED" | wall',
-  'Parsing log: failed={NUM}, ok={NUM}, ignored={NUM}',
-  'payload.size={NUM} bytes -> chunked into {NUM} blocks'
+/* =======================
+   Canvas Terminal Engine
+   ======================= */
+
+const SAMPLE = [
+  'sudo nmap -sS -p- 10.0.{R}.{R}',
+  'ssh root@{R}.{R}.{R}.{R} -p {N}',
+  'auth: token {HEX} verified for uid {UID}',
+  '[{TIME}] TRACE → {IP} via gw 192.168.{R}.{R}',
+  'git fetch && git reset --hard origin/main',
+  'python3 scan.py --fast --threads=12',
+  '[INFO] Processed {N} packets in {N}ms',
+  'watchdog: heartbeat lost on eth{R}',
+  'DB_WRITE trace:"session {ISO} start"',
+  'alloc(0x{HEX}, {N}) → OK',
+  'payload:[{HEX}{HEX}{HEX}]',
+  'SERVICE firewall={BOOL} status={STAT}',
+  'rm -rf /tmp/cache_{UID}/*',
+  'while true; do echo ping; sleep 1; done',
+  'chunks={N} size={N} bytes user={UID}'
 ];
 
-function rnd(min=0,max=1000){ return Math.floor(Math.random()*(max-min+1))+min }
+function rnd(a=0,b=1){ return Math.floor(Math.random()*(b-a+1))+a }
 function hex(len=4){ let s=''; for(let i=0;i<len;i++) s += Math.floor(Math.random()*16).toString(16); return s }
-function uid(){ return Math.floor(Math.random()*9000)+1000 }
-function timestr(){ const d=new Date(); return d.toLocaleTimeString() }
-
-function fillPlaceholders(s){
-  return s.replace(/\{RND\}/g,()=>rnd(1,254))
-          .replace(/\{HEX\}/g,()=>hex(4))
-          .replace(/\{UID\}/g,()=>uid())
-          .replace(/\{NUM\}/g,()=>rnd(1,9999))
-          .replace(/\{IP\}/g,()=>['10.0.0.1','172.16.8.4','203.120.45.2'][rnd(0,2)])
-          .replace(/\{BOOL\}/g,()=>Math.random()>0.5?'true':'false')
-          .replace(/\{STATUS\}/g,()=>['OK','WARN','FAIL'][rnd(0,2)])
-          .replace(/\{TIME\}/g,()=>new Date().toISOString())
+function repl(s){
+  return s.replaceAll('{R}', ()=>rnd(1,254))
+          .replaceAll('{N}', ()=>rnd(1,9999))
+          .replaceAll('{UID}',()=>rnd(1000,9999))
+          .replaceAll('{HEX}',()=>hex(4))
+          .replaceAll('{ISO}',()=>new Date().toISOString())
+          .replaceAll('{TIME}',()=>new Date().toLocaleTimeString())
+          .replaceAll('{BOOL}',()=>Math.random()<.5?'true':'false')
+          .replaceAll('{STAT}',()=>['OK','WARN','FAIL'][rnd(0,2)])
+          .replaceAll('{IP}',()=>['10.0.0.1','172.16.8.4','203.120.45.2'][rnd(0,2)])
 }
 
-class Terminal {
-  constructor(id, parent){
-    this.id = id;
-    this.parent = parent;
-    this.paused = false;
-    this.visible = true;
-    this.createElement();
-    this.start();
+class CanvasTerm {
+  constructor(id, mount){
+    this.id=id; this.mount=mount; this.paused=false;
+    this.canvas=document.createElement('canvas');
+    this.canvas.setAttribute('aria-label','terminal');
+    this.ctx=this.canvas.getContext('2d');
+    this.mount.className='tile';
+    this.mount.innerHTML = `<div class="title">root@node-${String(id).padStart(2,'0')}</div>`;
+    this.mount.appendChild(this.canvas);
+
+    // drawing config
+    this.fontSize=13; this.lineGap=4; this.pad=14;
+    this.family='ui-monospace, Menlo, Monaco, Consolas, monospace';
+    this.cursorOn=true; this.cursorTick=0;
+
+    // ring buffer
+    this.lines=[]; this.maxRows=10; this.typingQueue=[];
+    this._resizeObserver = new ResizeObserver(()=>this.resize());
+    this._resizeObserver.observe(this.mount);
+    this.resize();
+
+    // generators
+    this.interval = setInterval(()=> this.enqueueRandom(), rnd(350,900));
+    requestAnimationFrame(()=>this.draw());
   }
 
-  createElement(){
-    const el = document.createElement('div');
-    el.className = 'terminal';
-    el.innerHTML = `
-      <div class="term-header">
-        <div class="dots">
-          <span class="dot"></span>
-          <span class="dot yellow"></span>
-          <span class="dot green"></span>
-        </div>
-        <div class="term-title">root@matrix-${this.id.toString().padStart(2,'0')} ~</div>
-        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-          <button class="mini action-close" title="Close">✕</button>
-          <button class="mini action-toggle" title="Hide">—</button>
-        </div>
-      </div>
-      <div class="term-body" role="log" aria-atomic="false"></div>
-      <div class="term-footer">
-        <div class="muted">status: <span class="status">running</span></div>
-        <div style="flex:1"></div>
-        <button class="mini-btn pause">Pause</button>
-        <button class="mini-btn resume hidden">Resume</button>
-      </div>
-    `;
-    this.el = el;
-    this.body = el.querySelector('.term-body');
-    this.statusEl = el.querySelector('.status');
-    this.pauseBtn = el.querySelector('.pause');
-    this.resumeBtn = el.querySelector('.resume');
-    this.closeBtn = el.querySelector('.action-close');
-    this.toggleBtn = el.querySelector('.action-toggle');
+  resize(){
+    // fit canvas to tile (with devicePixelRatio for crisp text)
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const w = this.mount.clientWidth;
+    const h = this.mount.clientHeight;
+    this.canvas.width = Math.floor(w*dpr);
+    this.canvas.height = Math.floor(h*dpr);
+    this.canvas.style.width = w+'px';
+    this.canvas.style.height = h+'px';
+    const ctx=this.ctx;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
 
-    this.pauseBtn.addEventListener('click',()=>this.pause());
-    this.resumeBtn.addEventListener('click',()=>this.resume());
-    this.closeBtn.addEventListener('click',()=> this.hide());
-    this.toggleBtn.addEventListener('click',()=> this.toggleVisibility());
-
-    this.parent.appendChild(el);
+    // compute rows that fit
+    this.ctx.font = `${this.fontSize}px ${this.family}`;
+    const lineH = this.fontSize + this.lineGap;
+    this.maxRows = Math.max(3, Math.floor((h - this.pad*2)/lineH));
+    // make sure buffer not longer than rows
+    if(this.lines.length > this.maxRows) this.lines = this.lines.slice(-this.maxRows);
   }
 
-  start(){
-    this.loop = setInterval(()=>{
-      if(this.paused || !this.visible) return;
-      const burst = Math.random() < 0.12;
-      if(burst){
-        const n = rnd(2,6);
-        for(let i=0;i<n;i++) this.pushRandomLine(10 + i*200);
-      } else {
-        this.pushRandomLine();
-      }
-    }, rnd(350,900));
-  }
-
-  pushRandomLine(delay=0){
-    const snippet = fillPlaceholders(SAMPLE_SNIPPETS[rnd(0,SAMPLE_SNIPPETS.length-1)]);
-    const prefix = (Math.random()<0.25) ? `[${timestr()}] ` : '';
-    setTimeout(()=> this.typeLine(prefix + snippet), delay);
-  }
-
-  typeLine(text){
-    const lineEl = document.createElement('div');
-    lineEl.className = 'line';
-
-    // syntax tinting
-    const parts = text.split(/(\s+)/);
-    parts.forEach(token=>{
-      const span = document.createElement('span');
-      if(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(token)) span.className='num';
-      else if((token.startsWith('[')&&token.endsWith(']'))||token.includes('TRACE')||token.includes('time')) span.className='comment';
-      else if(token.includes('"')||token.includes("'")||token.includes('payload')) span.className='str';
-      else if(/^(sudo|git|python|ssh|rm|alloc|watchdog)/.test(token)) span.className='kw';
-      span.textContent = token;
-      lineEl.appendChild(span);
-    });
-
-    const cursor = document.createElement('span'); cursor.className='cursor';
-    lineEl.appendChild(cursor);
-    this.body.appendChild(lineEl);
-
-    // progressive typing with fit checks
-    const children = Array.from(lineEl.childNodes).filter(n=> n!==cursor);
-    let queue = [];
-    children.forEach(node=>{
-      const txt = node.textContent;
-      node.textContent = '';
-      for(const ch of txt) queue.push({node,ch});
-    });
-
-    let i=0;
-    const step = ()=>{
-      if(this.paused || !this.visible){ setTimeout(step,120); return; }
-      if(i<queue.length){
-        const {node,ch} = queue[i++];
-        node.textContent += ch;
-        if(Math.random()<0.004){ node.classList.add('comment'); setTimeout(()=>node.classList.remove('comment'), 400); }
-        this.ensureFit();     // <-- trim during typing if needed
-        setTimeout(step, rnd(6,18));
-      } else {
-        cursor.remove();
-        this.ensureFit(true); // final trim after line completes
-      }
-    };
-    setTimeout(step, rnd(6,30));
-  }
-
-  /* Trim from the top until the content fits the visible area (no scrollbar). */
-  ensureFit(final=false){
-    // small buffer so we don't thrash
-    const BUFFER_PX = final ? 4 : 12;
-    const body = this.body;
-    // While overflowing, remove the oldest line(s)
-    let guard = 0; // safety to avoid infinite loops in weird layouts
-    while (body.scrollHeight - body.clientHeight > BUFFER_PX && guard < 500){
-      const first = body.querySelector('.line');
-      if(!first) break;
-      first.remove();
-      guard++;
+  enqueueRandom(){
+    if(this.paused) return;
+    const txt = repl(SAMPLE[rnd(0,SAMPLE.length-1)]);
+    this.enqueueTyping(txt);
+    // occasional burst
+    if(Math.random()<0.12){
+      const n=rnd(2,5);
+      for(let i=0;i<n;i++) setTimeout(()=>this.enqueueTyping(repl(SAMPLE[rnd(0,SAMPLE.length-1)])), i*120);
     }
   }
 
-  pause(){ this.paused = true; this.statusEl.textContent='paused'; this.pauseBtn.classList.add('hidden'); this.resumeBtn.classList.remove('hidden'); }
-  resume(){ this.paused = false; this.statusEl.textContent='running'; this.pauseBtn.classList.remove('hidden'); this.resumeBtn.classList.add('hidden'); }
-  hide(){ this.el.classList.add('hidden'); this.visible=false; this.statusEl.textContent='hidden'; }
-  show(){ this.el.classList.remove('hidden'); this.visible=true; this.statusEl.textContent='running'; }
-  toggleVisibility(){ this.visible ? this.hide() : this.show(); }
-  destroy(){ clearInterval(this.loop); this.el.remove(); }
+  enqueueTyping(text){
+    // create a typing job: progressively add characters
+    const job = { text, idx:0 };
+    this.typingQueue.push(job);
+  }
+
+  draw(){
+    const ctx=this.ctx, W=this.canvas.width/ (window.devicePixelRatio||1), H=this.canvas.height/(window.devicePixelRatio||1);
+    // clear
+    ctx.clearRect(0,0,W,H);
+
+    // background
+    const grd = ctx.createLinearGradient(0,0,0,H);
+    grd.addColorStop(0,'rgba(255,255,255,.03)');
+    grd.addColorStop(1,'rgba(255,255,255,.01)');
+    ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
+
+    // advance typing
+    if(!this.paused && this.typingQueue.length){
+      const job = this.typingQueue[0];
+      const speed = rnd(2,4); // chars per frame step
+      job.idx = Math.min(job.idx + speed, job.text.length);
+      const cur = job.text.slice(0, job.idx);
+      this._applyTyped(cur);
+      if(job.idx>=job.text.length) this.typingQueue.shift();
+    }
+
+    // draw lines
+    ctx.font = `${this.fontSize}px ${this.family}`;
+    ctx.textBaseline='top';
+    const lineH = this.fontSize + this.lineGap;
+    let y = this.pad;
+
+    for(let i=0;i<this.lines.length;i++){
+      const ln = this.lines[i];
+      // simple tinting
+      if(ln.type==='ip'){ ctx.fillStyle = '#ff9ccd'; }
+      else if(ln.type==='kw'){ ctx.fillStyle = '#9bdfff'; }
+      else if(ln.type==='str'){ ctx.fillStyle = '#ffd28a'; }
+      else if(ln.type==='comment'){ ctx.fillStyle = '#5a6b66'; }
+      else { ctx.fillStyle = '#c9ffe6'; }
+
+      ctx.fillText(ln.text, this.pad, y);
+      y += lineH;
+    }
+
+    // cursor
+    this.cursorTick++;
+    if(this.cursorTick%35===0) this.cursorOn=!this.cursorOn;
+    if(this.cursorOn){
+      const curY = this.pad + (this.lines.length-1)*lineH;
+      const curX = this.pad + ctx.measureText((this.lines[this.lines.length-1]?.text || '').replace(/\u2588$/,'')).width + 2;
+      ctx.fillStyle = '#2aff9b';
+      ctx.fillRect(curX, curY+2, 8, this.fontSize-2);
+    }
+
+    requestAnimationFrame(()=>this.draw());
+  }
+
+  _applyTyped(partial){
+    // ensure last line is the line being typed; overwrite it
+    let type='plain';
+    if(/\d+\.\d+\.\d+\.\d+/.test(partial)) type='ip';
+    else if(/^(sudo|ssh|git|python|rm|alloc|watchdog)/.test(partial)) type='kw';
+    else if(partial.includes('"')||partial.includes("'")||partial.includes('payload')) type='str';
+    else if(partial.startsWith('[')) type='comment';
+
+    // start a new line if last is finalized (no trailing cursor char)
+    if(!this.lines.length || this.lines[this.lines.length-1].final){
+      this.lines.push({text:'', type, final:false});
+    }
+    const cur = this.lines[this.lines.length-1];
+    cur.text = partial;
+    cur.type = type;
+
+    // if fully finished previously, mark final and add an empty line slot
+    // (handled when queue advances to next job)
+    // keep within rows
+    if(this.lines.length > this.maxRows) this.lines = this.lines.slice(-this.maxRows);
+  }
+
+  finalizeLine(){
+    if(this.lines.length){
+      this.lines[this.lines.length-1].final = true;
+      if(this.lines.length > this.maxRows) this.lines = this.lines.slice(-this.maxRows);
+      // add a blank line placeholder so next typing replaces it
+      this.lines.push({text:'', type:'plain', final:false});
+      if(this.lines.length > this.maxRows) this.lines = this.lines.slice(-this.maxRows);
+    }
+  }
+
+  burst(n=5){ for(let i=0;i<n;i++) this.enqueueTyping(repl(SAMPLE[rnd(0,SAMPLE.length-1)])); }
+  pause(){ this.paused=true; }
+  resume(){ this.paused=false; }
+  destroy(){ clearInterval(this.interval); this._resizeObserver.disconnect(); this.mount.innerHTML=''; }
 }
 
-/* ---------- manager ---------- */
+/* ===========
+   Layout
+   =========== */
 const grid = document.getElementById('grid');
-let terminals = [];
+let terms = [];
 
-function buildGrid(count){
-  terminals.forEach(t=> t.destroy());
-  terminals = [];
-  grid.innerHTML = '';
-  for(let i=1;i<=count;i++) terminals.push(new Terminal(i, grid));
+function layoutGrid(){
+  const W = grid.clientWidth;
+  const H = grid.clientHeight;
+  const gutter = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gutter')) || 10;
+  const minW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--min-tile-w')) || 340;
+
+  // columns based on min width
+  let cols = Math.max(1, Math.floor((W + gutter) / (minW + gutter)));
+  cols = Math.min(cols, terms.length || 1);
+  const rows = Math.ceil((terms.length || 1)/cols);
+
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  // compute tile height so all rows fit exactly (minus gaps)
+  const tileH = Math.max(150, Math.floor( (H - gutter*(rows-1)) / rows ));
+  for(const t of terms){
+    t.mount.style.height = tileH + 'px';
+    // triggering resize observer will recompute rows in canvas
+  }
 }
 
-buildGrid(4);
+function build(n){
+  // cleanup
+  terms.forEach(t=>t.destroy());
+  terms = [];
+  grid.innerHTML = '';
 
-/* global controls */
-document.getElementById('applyCount').addEventListener('click', ()=>{
-  const v = parseInt(document.getElementById('termCount').value) || 4;
-  const clamped = Math.max(1, Math.min(12, v));
-  document.getElementById('termCount').value = clamped;
-  buildGrid(clamped);
-});
-document.getElementById('pauseAll').addEventListener('click', ()=> terminals.forEach(t=> t.pause()));
-document.getElementById('resumeAll').addEventListener('click', ()=> terminals.forEach(t=> t.resume()));
-document.getElementById('randomize').addEventListener('click', ()=>{
-  terminals.forEach(t=>{
-    const bursts = rnd(3,8);
-    for(let i=0;i<bursts;i++) t.pushRandomLine(i*80);
-  });
-});
+  // create tiles
+  for(let i=0;i<n;i++){
+    const tile = document.createElement('div');
+    grid.appendChild(tile);
+    const term = new CanvasTerm(i+1, tile);
+    terms.push(term);
+  }
+  layoutGrid();
+}
 
-/* Re-fit on resize/orientation changes so nothing ever overflows */
-window.addEventListener('resize', ()=>{
-  terminals.forEach(t=> t.ensureFit(true));
+// keep grid sized to viewport (no page scroll)
+function fitViewport(){
+  const app = document.querySelector('.app');
+  app.style.height = window.innerHeight + 'px';
+  layoutGrid();
+}
+
+window.addEventListener('resize', fitViewport);
+build(parseInt(document.getElementById('termCount').value,10));
+fitViewport();
+
+/* ===========
+   Controls
+   =========== */
+document.getElementById('apply').addEventListener('click', ()=>{
+  const n = Math.max(1, Math.min(16, parseInt(document.getElementById('termCount').value,10)||6));
+  document.getElementById('termCount').value = n;
+  build(n);
+  fitViewport();
 });
+document.getElementById('pauseAll').addEventListener('click', ()=> terms.forEach(t=>t.pause()));
+document.getElementById('resumeAll').addEventListener('click', ()=> terms.forEach(t=>t.resume()));
+document.getElementById('randomize').addEventListener('click', ()=> terms.forEach(t=> t.burst(rnd(3,7))));
 </script>
 </body>
 </html>
